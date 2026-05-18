@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills@latest *)",
+      "Bash(dotnet --version)",
+      "Bash(where dotnet *)",
+      "Bash(winget search *)",
+      "Bash(curl -L --connect-timeout 10 --max-time 10 -o /dev/null -w \"%{http_code}\" \"https://dotnet.microsoft.com/\")",
+      "Bash(curl -L --connect-timeout 10 --max-time 10 -o /dev/null -w \"%{http_code}\" \"https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.exe\")",
+      "Bash(winget install *)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" --version)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" restore)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" build)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" test --no-build)",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" test --no-build --filter \"FullyQualifiedName~ReminderCrud\")",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" test --no-build --filter \"FullyQualifiedName~Reminder\")",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" test --no-build --filter \"FullyQualifiedName~CreateAndCancel\")",
+      "Bash(\"C:/Program Files/dotnet/dotnet.exe\" run --project src/FavoriteSticker)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
