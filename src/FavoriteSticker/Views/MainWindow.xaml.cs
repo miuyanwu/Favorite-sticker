@@ -27,17 +27,27 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
     }
 
-    private void Window_Loaded(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Initialize HWND-dependent services. Must be called after window creation
+    /// and before the app is ready. Called from App.OnStartup.
+    /// </summary>
+    public void Initialize()
     {
-        var hwnd = new WindowInteropHelper(this).Handle;
+        // Force HWND creation without showing the window
+        var hwnd = new WindowInteropHelper(this).EnsureHandle();
+
+        // Attach clipboard listener
         _clipboardMonitor.Attach(hwnd);
+
+        // Attach and register hotkey
         _hotkeyManager.Attach(hwnd);
-        _hotkeyManager.Register();
         _hotkeyManager.OnHotkeyPressed += ToggleVisibility;
 
+        // WndProc hook for WM_CLIPBOARDUPDATE and WM_HOTKEY
         var source = HwndSource.FromHwnd(hwnd);
         source?.AddHook(WndProc);
 
+        // Tray icon
         _trayIcon.Attach(hwnd);
         _trayIcon.Show();
         _trayIcon.OnDoubleClick += ShowWindow;
@@ -45,7 +55,10 @@ public partial class MainWindow : Window
         _trayIcon.OnSettingsRequested += ShowSettings;
         _trayIcon.OnExitRequested += ExitApplication;
 
-        Hide(); // Start hidden, shown via hotkey
+        // Briefly show/hide to fully activate the WPF message pump.
+        // Without this, the Dispatcher won't process WM_HOTKEY/WM_CLIPBOARDUPDATE.
+        Show();
+        Hide();
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -60,7 +73,6 @@ public partial class MainWindow : Window
             _hotkeyManager.HandleHotkey(id);
         }
 
-        // Let TrayIcon handle its message
         _trayIcon.HandleMessage(msg, wParam, lParam);
 
         return IntPtr.Zero;

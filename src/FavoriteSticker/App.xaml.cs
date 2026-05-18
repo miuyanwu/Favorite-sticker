@@ -33,14 +33,7 @@ public partial class App : Application
         else
             _autoStart.Disable();
 
-        // Apply hotkey from config
-        var cfg = _store.Config.Hotkey;
-        _hotkeyManager.SetHotkey(cfg.Modifiers, cfg.Key);
-
-        // Start reminder polling
-        _reminderService.Start();
-
-        // Create the main window (hidden initially)
+        // Create the main window
         var favoriteManager = new FavoriteManager(_store);
         var starManager = new StarManager(_store);
         var searchService = new SearchService(_store);
@@ -53,14 +46,16 @@ public partial class App : Application
         _mainWindow = new MainWindow(viewModel, _hotkeyManager, _clipboardMonitor);
         _mainWindow.Closed += (_, _) => Shutdown();
 
-        // Show tray icon instead of window on startup
-        InitializeTrayIcon();
-    }
+        // Initialize all HWND-dependent services and start hotkey/clipboard listening
+        _mainWindow.Initialize();
 
-    private void InitializeTrayIcon()
-    {
-        // Tray icon is managed in MainWindow for simplicity.
-        // The window is created but not shown until hotkey is pressed.
+        // Apply hotkey from config
+        var cfg = _store.Config.Hotkey;
+        _hotkeyManager.SetHotkey(cfg.Modifiers, cfg.Key);
+        _hotkeyManager.Register();
+
+        // Start reminder polling
+        _reminderService.Start();
     }
 
     protected override void OnExit(ExitEventArgs e)
