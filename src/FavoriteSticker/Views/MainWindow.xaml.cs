@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
@@ -27,27 +28,18 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
     }
 
-    /// <summary>
-    /// Initialize HWND-dependent services. Must be called after window creation
-    /// and before the app is ready. Called from App.OnStartup.
-    /// </summary>
     public void Initialize()
     {
-        // Force HWND creation without showing the window
         var hwnd = new WindowInteropHelper(this).EnsureHandle();
 
-        // Attach clipboard listener
         _clipboardMonitor.Attach(hwnd);
 
-        // Attach and register hotkey
         _hotkeyManager.Attach(hwnd);
         _hotkeyManager.OnHotkeyPressed += ToggleVisibility;
 
-        // WndProc hook for WM_CLIPBOARDUPDATE and WM_HOTKEY
         var source = HwndSource.FromHwnd(hwnd);
         source?.AddHook(WndProc);
 
-        // Tray icon
         _trayIcon.Attach(hwnd);
         _trayIcon.Show();
         _trayIcon.OnDoubleClick += ShowWindow;
@@ -55,8 +47,6 @@ public partial class MainWindow : Window
         _trayIcon.OnSettingsRequested += ShowSettings;
         _trayIcon.OnExitRequested += ExitApplication;
 
-        // Briefly show/hide to fully activate the WPF message pump.
-        // Without this, the Dispatcher won't process WM_HOTKEY/WM_CLIPBOARDUPDATE.
         Show();
         Hide();
     }
@@ -64,17 +54,11 @@ public partial class MainWindow : Window
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == Win32.WM_CLIPBOARDUPDATE)
-        {
             _clipboardMonitor.HandleClipboardUpdate();
-        }
         else if (msg == Win32.WM_HOTKEY)
-        {
-            var id = wParam.ToInt32();
-            _hotkeyManager.HandleHotkey(id);
-        }
+            _hotkeyManager.HandleHotkey(wParam.ToInt32());
 
         _trayIcon.HandleMessage(msg, wParam, lParam);
-
         return IntPtr.Zero;
     }
 
@@ -93,29 +77,29 @@ public partial class MainWindow : Window
     {
         _isClosingToTray = false;
         Show();
-        Activate();
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero)
+        {
+            Win32.ShowWindow(hwnd, Win32.SW_RESTORE);
+            Win32.SetForegroundWindow(hwnd);
+        }
         SearchBox.Focus();
         SearchBox.SelectAll();
     }
 
-    // ---- Title bar drag ----
-    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // ---- Title bar ----
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
-        {
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-        }
         else
-        {
             DragMove();
-        }
     }
 
     // ---- Top-right buttons ----
     private void PinButton_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.IsTopmost = !_viewModel.IsTopmost;
-
         var hwnd = new WindowInteropHelper(this).Handle;
         if (_viewModel.IsTopmost)
             Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, 0, 0, 0, 0,
@@ -148,15 +132,15 @@ public partial class MainWindow : Window
     }
 
     // ---- Item interactions ----
-    private void Item_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void Item_Click(object sender, MouseButtonEventArgs e)
     {
+        if (e.OriginalSource is Button) return;
+
         if (sender is FrameworkElement el && el.Tag is ClipboardItem item)
-        {
             _viewModel.CopyItemCommand.Execute(item);
-        }
     }
 
-    private void Item_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    private void Item_MouseEnter(object sender, MouseEventArgs e)
     {
         if (sender is FrameworkElement el && el.Tag is ClipboardItem item)
         {
@@ -183,7 +167,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Item_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    private void Item_MouseLeave(object sender, MouseEventArgs e)
     {
         HoverPopup.IsOpen = false;
     }
@@ -191,31 +175,79 @@ public partial class MainWindow : Window
     private void StarButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.Tag is ClipboardItem item)
-        {
             _viewModel.ToggleStarCommand.Execute(item);
-        }
     }
 
-    private void DeleteButton_Click(object sender, RoutedEventArgs e)
+    // ---- Context menu (more actions) ----
+    private void MoreActions_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement el && el.Tag is ClipboardItem item)
+            ShowItemContextMenu(item, el);
+    }
+
+    private void Item_RightClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement el && el.Tag is ClipboardItem item)
         {
-            _viewModel.DeleteItemCommand.Execute(item);
+            ShowItemContextMenu(item, el);
+            e.Handled = true;
         }
     }
 
-    // ---- Toolbar buttons ----
+    private void ShowItemContextMenu(ClipboardItem item, FrameworkElement placementTarget)
+    {
+        var menu = new ContextMenu();
+
+        var deleteItem = new MenuItem { Header = "Delete" };
+        deleteItem.Click += (_, _) => _viewModel.DeleteItemCommand.Execute(item);
+        menu.Items.Add(deleteItem);
+
+        menu.Items.Add(new Separator());
+
+        // Move to folder submenu
+        var moveMenu = new MenuItem { Header = "Move to Folder" };
+        foreach (var node in _viewModel.FolderTree)
+        {
+            var folder = node.Folder;
+            var folderItem = new MenuItem { Header = folder.Name };
+            folderItem.Click += (_, _) =>
+            {
+                _viewModel.MoveToFolderCommand.Execute((item.Id, folder.Id));
+            };
+            moveMenu.Items.Add(folderItem);
+        }
+        if (!_viewModel.FolderTree.Any())
+            moveMenu.Items.Add(new MenuItem { Header = "(no folders)", IsEnabled = false });
+        menu.Items.Add(moveMenu);
+
+        menu.Items.Add(new Separator());
+
+        var starItem = new MenuItem { Header = item.IsStarred ? "Unstar" : "Star" };
+        starItem.Click += (_, _) => _viewModel.ToggleStarCommand.Execute(item);
+        menu.Items.Add(starItem);
+
+        menu.PlacementTarget = placementTarget;
+        menu.IsOpen = true;
+    }
+
+    // ---- Sidebar buttons ----
+    private void HomeButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SelectedFolderId = null;
+    }
+
+    private void AddFolder_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.CreateFolderCommand.Execute(null);
+    }
+
+    // ---- Filter buttons ----
     private void StarredFilter_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.ShowStarredOnlyCommand.Execute(null);
         StarredFilterBtn.Foreground = _viewModel.ShowOnlyStarred
             ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gold)
             : null;
-    }
-
-    private void AddFolder_Click(object sender, RoutedEventArgs e)
-    {
-        _viewModel.CreateFolderCommand.Execute(null);
     }
 
     private void ClearNonFavorites_Click(object sender, RoutedEventArgs e)

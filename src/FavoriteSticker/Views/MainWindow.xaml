@@ -68,6 +68,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
@@ -75,9 +76,18 @@
                     <TextBlock Text="Favorites" FontWeight="SemiBold"
                                Padding="8,6" Grid.Row="0"/>
 
-                    <ListBox x:Name="FolderListBox" Grid.Row="1"
+                    <!-- Home button to return to all items -->
+                    <Button Grid.Row="1" Content="[ All Items ]"
+                            Click="HomeButton_Click"
+                            Padding="8,4" Margin="4,2"
+                            Background="Transparent" BorderThickness="0"
+                            HorizontalAlignment="Left" Cursor="Hand"
+                            FontSize="12" ToolTip="Show all clipboard items"/>
+
+                    <ListBox x:Name="FolderListBox" Grid.Row="2"
                              ItemsSource="{Binding FolderTree}"
-                             SelectedItem="{Binding SelectedFolderId, Mode=TwoWay}"
+                             SelectedValuePath="Folder.Id"
+                             SelectedValue="{Binding SelectedFolderId, Mode=TwoWay}"
                              BorderThickness="0" Background="Transparent">
                         <ListBox.Resources>
                             <Style TargetType="ListBoxItem">
@@ -87,16 +97,16 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="" Width="16"/> <!-- depth spacer -->
+                                    <TextBlock Text="{Binding Indent}" Width="Auto" MinWidth="0"/>
                                     <TextBlock Text="&#x1F4C1;" Margin="4,0"/>
-                                    <TextBlock Text="{Binding Path=Folder.Name}"
+                                    <TextBlock Text="{Binding Folder.Name}"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="4">
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="4">
                         <Button Content="+ Folder" Click="AddFolder_Click"
                                 Padding="6,2" FontSize="11"
                                 Background="{StaticResource AccentBrush}"
@@ -142,6 +152,7 @@
                     <DataTemplate DataType="{x:Type models:ClipboardItem}">
                         <Border Style="{StaticResource ClipboardItemStyle}"
                                 MouseLeftButtonDown="Item_Click"
+                                MouseRightButtonDown="Item_RightClick"
                                 MouseEnter="Item_MouseEnter"
                                 MouseLeave="Item_MouseLeave"
                                 Tag="{Binding}">
@@ -164,7 +175,6 @@
 
                                 <!-- Content Preview -->
                                 <StackPanel Grid.Column="1" Margin="4,0" VerticalAlignment="Center">
-                                    <!-- Text content -->
                                     <TextBlock Text="{Binding TextContent, TargetNullValue=''}"
                                                TextTrimming="CharacterEllipsis"
                                                MaxHeight="40"
@@ -180,7 +190,6 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <!-- Image thumbnail -->
                                     <Image Source="{Binding ThumbnailPath}"
                                            MaxWidth="80" MaxHeight="60"
                                            Stretch="Uniform">
@@ -214,13 +223,13 @@
                                            FontSize="10" Foreground="Gray"
                                            VerticalAlignment="Center" Margin="8,0"/>
 
-                                <!-- Delete button -->
-                                <Button Grid.Column="3" Content="&#x2715;"
+                                <!-- More actions button (replaces X delete button) -->
+                                <Button Grid.Column="3" Content="..."
                                         Style="{StaticResource StarButtonStyle}"
-                                        Foreground="Gray"
-                                        Click="DeleteButton_Click"
+                                        Foreground="Gray" FontWeight="Bold"
+                                        Click="MoreActions_Click"
                                         Tag="{Binding}"
-                                        ToolTip="Delete"/>
+                                        ToolTip="More actions"/>
                             </Grid>
                         </Border>
                     </DataTemplate>

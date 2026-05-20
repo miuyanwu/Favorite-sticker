@@ -47,10 +47,20 @@ public static class Win32
     public static extern bool SetWindowPos(IntPtr hwnd, IntPtr hwndInsertAfter,
         int x, int y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hwnd, int nCmdShow);
+
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public static readonly IntPtr HWND_NOTOPMOST = new(-2);
     public const uint SWP_NOMOVE = 0x0002;
     public const uint SWP_NOSIZE = 0x0001;
+    public const int SW_RESTORE = 9;
+    public const int SW_SHOW = 5;
 
     [DllImport("user32.dll")]
     public static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpKeyState,

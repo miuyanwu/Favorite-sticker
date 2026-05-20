@@ -51,7 +51,7 @@ public class MainViewModel : INotifyPropertyChanged
     // ---- Observable Properties ----
 
     public ObservableCollection<ClipboardItem> Items { get; } = new();
-    public ObservableCollection<(Folder Folder, int Depth)> FolderTree { get; } = new();
+    public ObservableCollection<FolderTreeNode> FolderTree { get; } = new();
 
     public string SearchText
     {
@@ -203,8 +203,12 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void OnMoveToFolder(object? param)
     {
-        // param is a tuple or we parse from command parameter
-        // For simplicity, handled via drag-drop in code-behind
+        if (param is ValueTuple<string, string> tuple)
+        {
+            var (itemId, folderId) = tuple;
+            _favoriteManager.MoveItemToFolder(itemId, folderId);
+            RefreshItems();
+        }
     }
 
     private void OnOpenSettings(object? _)
@@ -252,7 +256,7 @@ public class MainViewModel : INotifyPropertyChanged
         var tree = _favoriteManager.BuildFolderTree();
         FolderTree.Clear();
         foreach (var entry in tree)
-            FolderTree.Add(entry);
+            FolderTree.Add(new FolderTreeNode { Folder = entry.Folder, Depth = entry.Depth });
     }
 
     // ---- INotifyPropertyChanged ----
